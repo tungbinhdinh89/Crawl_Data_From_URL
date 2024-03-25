@@ -1,18 +1,35 @@
-﻿using Craw_Data_From_URL.Services;
+﻿using Microsoft.Extensions.Logging;
 using System.Text;
+using static Craw_Data_From_URL.Services.Crawl_Data_Service;
 
 namespace Craw_Data_From_URL
 {
     internal class Program
     {
-        Crawl_Data_Service crawl = new Crawl_Data_Service();
         static async Task Main(string[] args)
         {
             Console.OutputEncoding = Encoding.UTF8;
-            string url = "https://antt.nguoiduatin.vn/co-phieu-hpx-chinh-thuc-duoc-giao-dich-tro-lai-tren-san-chung-khoan-tu-ngay-203-bien-do-dao-dong-len-toi-20-11255.html";
-            var item = await Crawl_Data_Service.GetDataAsync(url);
-            await Crawl_Data_Service.SaveDataAsync(item!);
-            Console.WriteLine("Progress Success");
+
+            var urlString = "https://s.cafef.vn/hose/htn-cong-ty-co-phan-hung-thinh-incons.chn";
+            var loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder.AddConsole();
+            });
+
+            var crawlService = new CrawlDataService(loggerFactory);
+
+            try
+            {
+                var urls = await crawlService.GetLinkFromURL(urlString);
+                await crawlService.GetDataAsync(urls);
+
+                Console.WriteLine("Progress Success");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred: {ex.Message}");
+            }
+
             Console.ReadLine();
         }
     }

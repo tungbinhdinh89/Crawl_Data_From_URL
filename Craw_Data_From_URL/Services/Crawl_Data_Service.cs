@@ -1,71 +1,122 @@
 ﻿using Craw_Data_From_URL.Model;
 using HtmlAgilityPack;
-using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Logging;
 
 namespace Craw_Data_From_URL.Services
 {
     public class Crawl_Data_Service
     {
-        private static string connectionString = "Server=TUNGBINHDINH89\\SQLEXPRESS;Database=CrawlData;Trusted_Connection=True;TrustServerCertificate=true;";
-        public static async Task<DataItem?> GetDataAsync(string url)
+        public class CrawlDataService
         {
-            try
+            private static readonly string connectionString = "Server=TUNGBINHDINH89\\SQLEXPRESS;Database=CrawlData;Trusted_Connection=True;TrustServerCertificate=true;";
+
+            private readonly ILogger<CrawlDataService> _logger;
+            public CrawlDataService(ILoggerFactory loggerFactory)
             {
-                var handler = new HttpClientHandler();
-                using (var client = new HttpClient(handler))
+                _logger = loggerFactory.CreateLogger<CrawlDataService>();
+            }
+
+            public async Task GetDataAsync(List<string> urls)
+            {
+                foreach (string url in urls)
                 {
-                    HttpResponseMessage response = await client.GetAsync(url);
-                    if (response.IsSuccessStatusCode)
+                    try
                     {
-                        string html = await response.Content.ReadAsStringAsync();
-                        HtmlDocument doc = new HtmlDocument();
-                        doc.LoadHtml(html);
-
-                        HtmlNodeCollection divNodes = doc.DocumentNode.SelectNodes("div");
-                        string xpath = $"//*[contains(@class,'article-title')]";
-                        if (doc.DocumentNode != null)
+                        using (var client = new HttpClient())
                         {
-                            HtmlNode titleNode = doc.DocumentNode.SelectSingleNode($"//*[contains(@class,'article-title')]");
-                            HtmlNode descriptionNode = doc.DocumentNode.SelectSingleNode($"//*[contains(@class,'txt-head')]");
-                            HtmlNode contentNode = doc.DocumentNode.SelectSingleNode($"//*[contains(@class,'article-content')]");
-
-                            if (titleNode != null && descriptionNode != null && contentNode != null)
+                            HttpResponseMessage response = await client.GetAsync(url);
+                            if (response.IsSuccessStatusCode)
                             {
-                                return new DataItem { Title = titleNode.InnerText.Trim(), Description = descriptionNode.InnerText.Trim(), Content = contentNode.InnerText.Trim() };
+                                string html = await response.Content.ReadAsStringAsync();
+                                HtmlDocument doc = new HtmlDocument();
+                                doc.LoadHtml(html);
+
+                                HtmlNode titleNode = doc.DocumentNode.SelectSingleNode("//span[@class='cms_blue']");
+                                HtmlNode descriptionNode = doc.DocumentNode.SelectSingleNode("//h2[@class='intro']");
+                                HtmlNode contentNode = doc.DocumentNode.SelectSingleNode("//div[@id='newscontent']");
+
+                                if (titleNode != null && descriptionNode != null && contentNode != null)
+                                {
+                                    var item = new DataItem
+                                    {
+                                        Title = titleNode.InnerText.Trim(),
+                                        Description = descriptionNode.InnerText.Trim(),
+                                        Content = contentNode.InnerText.Trim()
+                                    };
+                                    await SaveDataAsync(item);
+                                }
+                                else
+                                {
+                                    _logger.LogError("Data not found for URL: {Url}", url);
+                                }
                             }
                             else
                             {
-                                Console.WriteLine("Data not found");
-                                return null;
+                                _logger.LogError("HTTP request failed with status code: {StatusCode} for URL: {Url}", response.StatusCode, url);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error occurred while processing URL: {Url}", url);
+                    }
+                }
+            }
+
+            public async Task<List<string>> GetLinkFromURL(string urlGet)
+            {
+                List<string> urls = new List<string>();
+                try
+                {
+                    using (var client = new HttpClient())
+                    {
+                        HttpResponseMessage response = await client.GetAsync(urlGet);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            string html = await response.Content.ReadAsStringAsync();
+                            HtmlDocument doc = new HtmlDocument();
+                            doc.LoadHtml(html);
+
+                            var links = doc.DocumentNode.SelectNodes("//div[@id='divTopEvents']//li/a");
+                            if (links != null)
+                            {
+                                foreach (var link in links)
+                                {
+                                    string href = link.GetAttributeValue("href", "");
+                                    urls.Add("https://s.cafef.vn" + href);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogError("Data not found in HTML for URL: {Url}", urlGet);
                             }
                         }
                         else
                         {
-                            Console.WriteLine("Document node not found");
-                            return null;
+                            _logger.LogError("HTTP request failed with status code: {StatusCode} for URL: {Url}", response.StatusCode, urlGet);
                         }
                     }
-                    else
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error occurred while fetching URL: {Url}", urlGet);
+                }
+                return urls;
+            }
+
+            public async Task SaveDataAsync(DataItem item)
+            {
+                try
+                {
+                    using (var context = new ApplicationDbContext())
                     {
-                        throw new HttpRequestException($"HTTP request failed with status code: {response.StatusCode}");
+                        context.DataItems.Add(item);
+                        await context.SaveChangesAsync();
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-                return null;
-            }
-        }
-
-        public static async Task SaveDataAsync(DataItem item)
-        {
-            using (SqlConnection connection = new SqlConnection(connectionString))
-            {
-                using (var context = new ApplicationDbContext())
+                catch (Exception ex)
                 {
-                    context.DataItems.Add(item);
-                    await context.SaveChangesAsync();
+                    _logger.LogError(ex, "Error occurred while saving data");
                 }
             }
         }
