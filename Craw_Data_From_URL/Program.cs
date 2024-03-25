@@ -10,7 +10,9 @@ namespace Craw_Data_From_URL
         {
             Console.OutputEncoding = Encoding.UTF8;
             string url = "https://antt.nguoiduatin.vn/co-phieu-hpx-chinh-thuc-duoc-giao-dich-tro-lai-tren-san-chung-khoan-tu-ngay-203-bien-do-dao-dong-len-toi-20-11255.html";
-            Crawl_Data_Service.GetDataAsync(url);
+            var item = await Crawl_Data_Service.GetDataAsync(url);
+            await Crawl_Data_Service.SaveDataAsync(item!);
+            Console.WriteLine("Progress Success");
             Console.ReadLine();
         }
     }

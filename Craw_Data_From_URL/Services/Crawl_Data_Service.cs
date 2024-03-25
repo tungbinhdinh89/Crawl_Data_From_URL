@@ -1,10 +1,13 @@
-﻿using HtmlAgilityPack;
+﻿using Craw_Data_From_URL.Model;
+using HtmlAgilityPack;
+using Microsoft.Data.SqlClient;
 
 namespace Craw_Data_From_URL.Services
 {
     public class Crawl_Data_Service
     {
-        public static async void GetDataAsync(string url)
+        private static string connectionString = "Server=TUNGBINHDINH89\\SQLEXPRESS;Database=CrawlData;Trusted_Connection=True;TrustServerCertificate=true;";
+        public static async Task<DataItem?> GetDataAsync(string url)
         {
             try
             {
@@ -28,18 +31,18 @@ namespace Craw_Data_From_URL.Services
 
                             if (titleNode != null && descriptionNode != null && contentNode != null)
                             {
-                                string title = titleNode.InnerText.Trim();
-                                Console.WriteLine($"Title: {titleNode.InnerText.Trim()}, Description : {descriptionNode.InnerText.Trim()}, Content: {contentNode.InnerText.Trim()}");
+                                return new DataItem { Title = titleNode.InnerText.Trim(), Description = descriptionNode.InnerText.Trim(), Content = contentNode.InnerText.Trim() };
                             }
                             else
                             {
                                 Console.WriteLine("Data not found");
+                                return null;
                             }
                         }
                         else
                         {
-
                             Console.WriteLine("Document node not found");
+                            return null;
                         }
                     }
                     else
@@ -50,8 +53,20 @@ namespace Craw_Data_From_URL.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Lỗi: {ex.Message}");
-                //return string.Empty;
+                Console.WriteLine($"Error: {ex.Message}");
+                return null;
+            }
+        }
+
+        public static async Task SaveDataAsync(DataItem item)
+        {
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                using (var context = new ApplicationDbContext())
+                {
+                    context.DataItems.Add(item);
+                    await context.SaveChangesAsync();
+                }
             }
         }
     }
