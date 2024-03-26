@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using CrawlData.Lib.Services.Implementations;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Text;
-using static Craw_Data_From_URL.Services.Crawl_Data_Service;
 
 namespace Craw_Data_From_URL
 {
@@ -11,12 +12,18 @@ namespace Craw_Data_From_URL
             Console.OutputEncoding = Encoding.UTF8;
 
             var urlString = "https://s.cafef.vn/hose/htn-cong-ty-co-phan-hung-thinh-incons.chn";
+
             var loggerFactory = LoggerFactory.Create(builder =>
             {
                 builder.AddConsole();
             });
 
-            var crawlService = new CrawlDataService(loggerFactory);
+
+            IConfigurationRoot configuration = new ConfigurationBuilder()
+                  .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                  .Build();
+
+            var crawlService = new CrawlDataServices(loggerFactory, configuration);
 
             try
             {
