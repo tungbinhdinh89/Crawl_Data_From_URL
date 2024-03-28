@@ -2,7 +2,7 @@
 
 namespace CrawlData.Lib.Services
 {
-    internal interface ICrawlDataServices
+    public interface ICrawlDataServices
     {
 
         Task GetDataAsync(List<string> urls);
