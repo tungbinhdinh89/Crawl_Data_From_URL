@@ -1,7 +1,9 @@
-﻿using CrawlData.Lib.Services.Implementations;
+﻿using CrawlData.Lib.Data.Contexts;
+using CrawlData.Lib.Services;
+using CrawlData.Lib.Services.Implementations;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Craw_Data_From_URL
 {
@@ -9,21 +11,27 @@ namespace Craw_Data_From_URL
     {
         static async Task Main(string[] args)
         {
-            Console.OutputEncoding = Encoding.UTF8;
-
             var urlString = "https://s.cafef.vn/hose/htn-cong-ty-co-phan-hung-thinh-incons.chn";
 
-            var loggerFactory = LoggerFactory.Create(builder =>
-            {
-                builder.AddConsole();
-            });
+            // runtime - stage
 
+            var configuration = new ConfigurationBuilder()
+                 //.SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                 .AddJsonFile("appsettings.json")
+                 .Build();
 
-            IConfigurationRoot configuration = new ConfigurationBuilder()
-                  .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                  .Build();
+            var services = new ServiceCollection();
+            services.AddSingleton<IConfiguration>(configuration);
+            services.AddScoped<ICrawlDataServices, CrawlDataServices>();
+            services.AddLogging(); // Register ILogger service
+            services.AddHttpClient(); // Register IHttpClientFactory service
 
-            var crawlService = new CrawlDataServices(loggerFactory, configuration);
+            services.AddDbContext<ApplicationDbContext>(option => option.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+            IServiceProvider sp = services.BuildServiceProvider();
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            var crawlService = sp.GetRequiredService<ICrawlDataServices>();
 
             try
             {
@@ -36,7 +44,6 @@ namespace Craw_Data_From_URL
             {
                 Console.WriteLine($"An error occurred: {ex.Message}");
             }
-
             Console.ReadLine();
         }
     }
